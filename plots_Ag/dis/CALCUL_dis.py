@@ -4,12 +4,16 @@ import os
 import warnings
 import numpy as np
 
-# Настройки
+#Настройки
 input_folder = '.'  # Текущая папка
-output_file = 'fit_results_fixed_y0_optimized.csv'  # Файл для сохранения результатов
-min_time_range = 0  # Минимальное время (сек)
-max_time_range = 15  # Максимальное время для варьирования
-num_variations = 20  # Количество вариантов time_min для проверки
+output_file = 'fit_results_fixed_y0_optimized_range.csv'  # Файл для сохранения результатов
+
+# Параметры варьирования временного диапазона
+min_time_min = 0  # Минимальное значение начального времени (сек)
+max_time_min = 10  # Максимальное значение начального времени (сек)
+min_time_max = 30  # Минимальное значение конечного времени (сек)
+max_time_max = 119  # Максимальное значение конечного времени (сек)
+num_variations = 20# Количество вариантов для time_min и time_max
 
 # Создаем список для хранения результатов
 results = []
@@ -22,10 +26,10 @@ if not op.oext:
     raise RuntimeError("Не удалось подключиться к Origin")
 
 
-def perform_fit(data, time_min, filename):
-    """Выполняет подгонку с фиксированным y0=0 для заданного time_min"""
+def perform_fit(data, time_min, time_max, filename):
+    """Выполняет подгонку с фиксированным y0=0 для заданного временного диапазона"""
     # Фильтрация данных
-    filtered_data = data[data['Time (s)'] >= time_min].copy()
+    filtered_data = data[(data['Time (s)'] >= time_min) & (data['Time (s)'] <= time_max)].copy()
 
     if len(filtered_data) < 10:
         return None
@@ -90,6 +94,7 @@ def perform_fit(data, time_min, filename):
         'R_squared': r_squared,
         'Iterations': niter,
         'Time_min': time_min,
+        'Time_max': time_max,
         'Fixed_y0': 0
     }
 
@@ -107,40 +112,53 @@ for filename in csv_files:
             warnings.warn(f"Файл {filename} не содержит нужных столбцов. Пропускаем.")
             continue
 
-        # Создаем варианты time_min от 2 до 15 секунд
-        time_min_options = np.linspace(min_time_range, max_time_range, num_variations)
+        # Создаем варианты time_min и time_max
+        time_min_options = np.linspace(min_time_min, max_time_min, num_variations)
+        time_max_options = np.linspace(min_time_max, max_time_max, num_variations)
 
         best_fit = None
         best_r_squared = -1
 
+        # Перебираем все возможные комбинации time_min и time_max (где time_min < time_max)
         for time_min in time_min_options:
-            try:
-                current_fit = perform_fit(data, time_min, filename)
+            for time_max in time_max_options:
+                if time_min >= time_max:  # Пропускаем случаи, когда time_min >= time_max
+                    continue
 
-                if current_fit and current_fit['R_squared'] > best_r_squared:
-                    best_r_squared = current_fit['R_squared']
-                    best_fit = current_fit
-                    print(f"Новый лучший R²={best_r_squared:.4f} при time_min={time_min:.2f}")
+                try:
+                    current_fit = perform_fit(data, time_min, time_max, filename)
 
-            except Exception as e:
-                warnings.warn(f"Ошибка при time_min={time_min:.2f} для файла {filename}: {str(e)}")
-                continue
+                    if current_fit and current_fit['R_squared'] is not None and current_fit[
+                        'R_squared'] > best_r_squared:
+                        best_r_squared = current_fit['R_squared']
+                        best_fit = current_fit
+                        print(
+                            f"Новый лучший R²={best_r_squared:.4f} при time_min={time_min:.2f}, time_max={time_max:.2f}")
+
+                except Exception as e:
+                    warnings.warn(
+                        f"Ошибка при time_min={time_min:.2f}, time_max={time_max:.2f} для файла {filename}: {str(e)}")
+                    continue
 
         if best_fit:
             results.append(best_fit)
-            print(
-                f"Лучший результат для {filename}: R²={best_r_squared:.4f}, t1={best_fit['t1']:.4f}, time_min={best_fit['Time_min']:.2f}")
+            print(f"Лучший результат для {filename}:")
+            print(f"R² = {best_r_squared:.4f}")
+            print(f"t1 = {best_fit['t1']:.4f} ± {best_fit['t1_error']:.4f}")
+            print(f"Диапазон = [{best_fit['Time_min']:.2f}-{best_fit['Time_max']:.2f}]")
         else:
             warnings.warn(f"Не удалось выполнить аппроксимацию для файла {filename}")
 
     except Exception as e:
         warnings.warn(f"Ошибка при обработке файла {filename}: {str(e)}")
+    op.exit()
 
 # Сохраняем все результаты в CSV
 if results:
     results_df = pd.DataFrame(results)
     # Упорядочиваем столбцы
-    cols = ['Filename', 't1', 't1_error', 'A', 'A_error', 'Fixed_y0', 'R_squared', 'Iterations', 'Time_min']
+    cols = ['Filename', 't1', 't1_error', 'A', 'A_error', 'Fixed_y0', 'R_squared',
+            'Iterations', 'Time_min', 'Time_max']
     results_df = results_df[cols]
     results_df.to_csv(output_file, index=False)
     print(f"\nРезультаты сохранены в {output_file}")

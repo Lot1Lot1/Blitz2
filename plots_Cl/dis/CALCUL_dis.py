@@ -13,7 +13,7 @@ min_time_min = 0  # Минимальное значение начального
 max_time_min = 10  # Максимальное значение начального времени (сек)
 min_time_max = 30  # Минимальное значение конечного времени (сек)
 max_time_max = 119  # Максимальное значение конечного времени (сек)
-num_variations = 5  # Количество вариантов для time_min и time_max
+num_variations = 20# Количество вариантов для time_min и time_max
 
 # Создаем список для хранения результатов
 results = []
@@ -151,7 +151,8 @@ for filename in csv_files:
 
     except Exception as e:
         warnings.warn(f"Ошибка при обработке файла {filename}: {str(e)}")
-op.exit()
+    op.exit()
+
 # Сохраняем все результаты в CSV
 if results:
     results_df = pd.DataFrame(results)

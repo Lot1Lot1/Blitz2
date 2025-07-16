@@ -8,8 +8,8 @@ import numpy as np
 input_folder = '.'  # Текущая папка (можно указать другую)
 output_file = 'fit_results_varied_max_time.csv'  # Файл для сохранения результатов
 initial_time_min = 0  # Фиксированное начальное время
-time_range_variations = 5  # Количество вариаций конечного времени
-min_points = 10  # Минимальное количество точек для анализа
+time_range_variations = 20  # Количество вариаций конечного времени
+min_points = 20  # Минимальное количество точек для анализа
 
 # Создаем список для хранения результатов
 results = []
@@ -105,7 +105,7 @@ for filename in csv_files:
 
         # Определяем возможные конечные временные точки
         full_time_max = data['Time (s)'].max()
-        time_max_options = np.linspace(full_time_max * 0.3, full_time_max, time_range_variations)
+        time_max_options = np.linspace(full_time_max * 0.25, full_time_max, time_range_variations)
 
         best_fit = None
         best_r_squared = -1
@@ -147,6 +147,7 @@ for filename in csv_files:
 
     except Exception as e:
         warnings.warn(f"Ошибка при обработке файла {filename}: {str(e)}")
+
 
 # Сохраняем все результаты в CSV
 if results:
